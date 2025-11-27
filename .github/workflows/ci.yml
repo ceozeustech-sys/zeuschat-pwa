@@ -1,0 +1,61 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  node-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - run: node harness/encryption/test.js
+      - run: node harness/pin/test.js
+      - run: node harness/mobile/hkdf_fallback_test.js
+
+  go-relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.x'
+      - run: go build ./server/relay
+      - name: Start relay
+        run: |
+          nohup bash -lc "go run ./server/relay" > relay.log 2>&1 &
+          sleep 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - name: Run client test
+        run: RELAY_URL=http://localhost:8080 node harness/relay/client_test.js
+      - name: Run provision test
+        run: RELAY_URL=http://localhost:8080 node harness/provision/test.js
+      - name: Run chat single-view
+        run: RELAY_URL=http://localhost:8080 node harness/chat/single_view.js
+      - name: Run media test
+        run: RELAY_URL=http://localhost:8080 node harness/media/test.js
+      - name: Run TTL policy test
+        run: RELAY_URL=http://localhost:8080 node harness/relay/ttl_test.js
+      - name: Run inbox test
+        run: RELAY_URL=http://localhost:8080 node harness/inbox/test.js
+      - name: Run audit test
+        run: RELAY_URL=http://localhost:8080 node harness/audit/test.js
+      - name: Run sync test
+        run: RELAY_URL=http://localhost:8080 node harness/sync/test.js
+      - name: Run encrypted envelope test
+        run: RELAY_URL=http://localhost:8080 node harness/sync/encrypted_envelope_test.js
+      - name: Run e2e 1:1 test
+        run: RELAY_URL=http://localhost:8080 node harness/relay/e2e_1to1_test.js
+      - name: Run unopened expiry test
+        run: RELAY_URL=http://localhost:8080 node harness/relay/expiry_unopened_test.js
+      - name: Run ZEUS-ID test
+        run: RELAY_URL=http://localhost:8080 node harness/id/test.js
+      - name: Run gate password test
+        run: RELAY_URL=http://localhost:8080 node harness/gate/test.js
+      - name: Run HKDF gate password test
+        run: RELAY_URL=http://localhost:8080 node harness/gate/hkdf_gate_test.js
