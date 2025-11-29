@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import HeaderBar from '../components/HeaderBar'
 
 export default function Contacts() {
   const [owner, setOwner] = useState('')
@@ -31,7 +32,9 @@ export default function Contacts() {
   }
 
   return (
-    <main style={{ display: 'flex', minHeight: '100vh', background: '#0E1A24', color: '#C9A14A', alignItems: 'center', justifyContent: 'center' }}>
+    <main style={{ minHeight: '100vh', background: '#0E1A24', color: '#C9A14A' }}>
+      <HeaderBar />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 480 }}>
         <h2>Contacts</h2>
         <div>
@@ -52,6 +55,7 @@ export default function Contacts() {
           ))}
         </div>
         <div style={{ marginTop: 12 }}><a href="/" style={{ color: '#C9A14A', textDecoration: 'underline' }}>Home</a></div>
+      </div>
       </div>
     </main>
   )

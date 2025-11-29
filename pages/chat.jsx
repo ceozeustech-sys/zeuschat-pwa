@@ -15,6 +15,9 @@ export default function Chat() {
   const [password, setPassword] = useState('')
   const [ttl, setTtl] = useState('30')
   const [myPassHash, setMyPassHash] = useState('')
+  const [replies, setReplies] = useState({})
+  const [relayOk, setRelayOk] = useState(false)
+  const [showReq, setShowReq] = useState({ visible: false, sender: '', blobId: '' })
 
   useEffect(() => {
     const existing = getLS('device_id', '')
@@ -32,6 +35,7 @@ export default function Chat() {
     ;(async () => {
       try { const r = await fetch(`/api/profile/${existing || getLS('device_id','')}`); if (r.ok) { const j = await r.json(); setMyPassHash(j.passwordHashB64 || '') } } catch {}
     })()
+    ;(async () => { try { const t = await fetch('/api/relay/test'); setRelayOk(t.ok) } catch { setRelayOk(false) } })()
   }, [])
 
   function genId() {
@@ -74,17 +78,24 @@ export default function Chat() {
         if (r.status === 204) return
         const j = await r.json()
         if (j && j.id) {
+          const pk = await fetch(`/api/peek/${j.id}`)
+          if (!pk.ok) return
+          const pv = await pk.json()
+          const sender = pv.from || 'peer'
+          let isKnown = false
+          try { const cr = await fetch(`/api/contacts/${myId}`); if (cr.ok) { const cl = await cr.json(); isKnown = !!cl.find(x => x.code === sender) } } catch {}
+          if (!isKnown) { setShowReq({ visible: true, sender, blobId: j.id }); return }
           const b = await fetch(`/api/blob/${j.id}`)
           if (b.ok) {
             const p = await b.json()
             let text = ''
-            try { const o = JSON.parse(p.data); text = o.text; const sender = p.from || 'peer';
+            try { const o = JSON.parse(p.data); text = o.text; const sender2 = p.from || 'peer';
               const entered = prompt('Enter your viewing password to open:') || ''
               if (btoa(entered) !== myPassHash) {
-                await fetch(`/api/ack/${sender}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blobId: j.id, reason: 'wrong_password' }) })
+                await fetch(`/api/ack/${sender2}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blobId: j.id, reason: 'wrong_password' }) })
                 return
               } else {
-                await fetch(`/api/ack/${sender}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blobId: j.id, reason: 'viewed' }) })
+                await fetch(`/api/ack/${sender2}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blobId: j.id, reason: 'viewed' }) })
               }
             } catch { text = String(p.data || ''); }
             const item = { id: j.id, from: (p.from || peerId || 'peer'), to: myId, text, ts: Date.now(), ttl: 30000 }
@@ -112,7 +123,7 @@ export default function Chat() {
       <div style={{ display: 'flex', alignItems: 'stretch' }}>
       <div style={{ flex: 1, padding: 16 }}>
         <h2>ZeusChat (Demo)</h2>
-        <p style={{ color: '#fff' }}>Your ID: {myId}</p>
+        <p style={{ color: '#fff' }}>Your ID: {myId} • Relay: {relayOk ? 'OK' : 'Offline'}</p>
         <label style={{ color: '#fff' }}>Peer ID</label>
         <input value={peerId} onChange={e => savePeer(e.target.value)} placeholder="friend's device id" style={{ width: '100%', padding: 8 }} />
         <div style={{ marginTop: 12 }}>
@@ -137,6 +148,12 @@ export default function Chat() {
               <div style={{ color: '#fff' }}>{item.text}</div>
               <div style={{ color: '#888', fontSize: 12 }}>ttl: {Math.floor((item.ttl - (Date.now() - item.ts)) / 1000)}s • {item.status === 'viewed' ? '✓✓' : item.status === 'delivered' ? '✓✓' : item.status === 'wrong_password' ? '✗' : '✓'}</div>
               <button onClick={() => view(item.id)} style={{ marginTop: 6, padding: '4px 8px', background: '#C9A14A', color: '#0E1A24', border: 'none', borderRadius: 6 }}>View (expire)</button>
+              {item.from !== myId ? (
+                <div style={{ marginTop: 8 }}>
+                  <input value={replies[item.id] || ''} onChange={e => setReplies(prev => ({ ...prev, [item.id]: e.target.value }))} placeholder="reply within time" style={{ width: '60%', padding: 6 }} />
+                  <button onClick={() => sendReply(item.from, item.id)} style={{ marginLeft: 8, padding: '6px 12px', background: '#C9A14A', color: '#0E1A24', border: 'none', borderRadius: 6 }}>Reply</button>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -148,3 +165,28 @@ export default function Chat() {
     </main>
   )
 }
+  async function sendReply(targetCode, originalId) {
+    const body = replies[originalId] || ''
+    if (!body) return
+    const ttlMs = Math.min(30000, Math.max(10000, parseInt(ttl || '30', 10) * 1000))
+    if (useServer) {
+      const payload = { device_id: targetCode, data: JSON.stringify({ text: body }), ttl_ms: ttlMs, from: myId }
+      const r = await fetch('/api/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const j = await r.json()
+      const item = { id: j.id || genId(), from: myId, to: targetCode, text: body, ts: Date.now(), ttl: ttlMs, status: 'sent' }
+      setList(prev => { const next = [item, ...prev]; setLS('conv', next); return next })
+      setReplies(prev => ({ ...prev, [originalId]: '' }))
+    }
+  }
+        {showReq.visible ? (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#102030', color: '#fff', padding: 16, borderRadius: 8, width: 360 }}>
+              <div>Message request from {showReq.sender}</div>
+              <div style={{ marginTop: 12 }}>
+                <button onClick={async () => { await fetch(`/api/contacts/${myId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: showReq.sender }) }); setShowReq({ visible: false, sender: '', blobId: '' }) }} style={{ marginRight: 8, padding: '6px 12px', background: '#C9A14A', color: '#0E1A24', border: 'none', borderRadius: 6 }}>Save Contact</button>
+                <button onClick={async () => { setShowReq({ visible: false, sender: '', blobId: '' }); const b = await fetch(`/api/blob/${showReq.blobId}`); if (b.ok) { const p = await b.json(); let text = ''; try { const o = JSON.parse(p.data); text = o.text } catch { text = String(p.data || '') } const item = { id: showReq.blobId, from: (p.from || 'peer'), to: myId, text, ts: Date.now(), ttl: 30000 }; setList(prev => { const next = [item, ...prev]; setLS('conv', next); return next }) } }} style={{ marginRight: 8, padding: '6px 12px', background: '#C9A14A', color: '#0E1A24', border: 'none', borderRadius: 6 }}>Accept</button>
+                <button onClick={async () => { await fetch(`/api/ack/${showReq.sender}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blobId: showReq.blobId, reason: 'declined' }) }); await fetch(`/api/blob/${showReq.blobId}`); setShowReq({ visible: false, sender: '', blobId: '' }) }} style={{ padding: '6px 12px', background: '#C9A14A', color: '#0E1A24', border: 'none', borderRadius: 6 }}>Decline</button>
+              </div>
+            </div>
+          </div>
+        ) : null}

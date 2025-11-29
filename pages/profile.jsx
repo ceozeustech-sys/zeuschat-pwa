@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import HeaderBar from '../components/HeaderBar'
 
 export default function Profile() {
   const [code, setCode] = useState('')
@@ -30,7 +31,9 @@ export default function Profile() {
   }
 
   return (
-    <main style={{ display: 'flex', minHeight: '100vh', background: '#0E1A24', color: '#C9A14A', alignItems: 'center', justifyContent: 'center' }}>
+    <main style={{ minHeight: '100vh', background: '#0E1A24', color: '#C9A14A' }}>
+      <HeaderBar />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 420 }}>
         <h2>Profile</h2>
         <p style={{ color: '#fff' }}>Code: {code}</p>
@@ -52,6 +55,7 @@ export default function Profile() {
         <button onClick={save} style={{ marginTop: 12, padding: '8px 16px', background: '#C9A14A', color: '#0E1A24', border: 'none', borderRadius: 6 }}>Save</button>
         <div style={{ marginTop: 12 }}><a href="/contacts" style={{ color: '#C9A14A', textDecoration: 'underline' }}>Manage Contacts</a></div>
         {status ? <p style={{ color: '#fff' }}>{status}</p> : null}
+      </div>
       </div>
     </main>
   )

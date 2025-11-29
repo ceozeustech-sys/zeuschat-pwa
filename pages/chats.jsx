@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import HeaderBar from '../components/HeaderBar'
 
 function groupLatest(conv, myId) {
   const byPeer = new Map()
@@ -22,7 +23,9 @@ export default function Chats() {
   }, [])
 
   return (
-    <main style={{ display: 'flex', minHeight: '100vh', background: '#ECECEC', color: '#222' }}>
+    <main style={{ minHeight: '100vh', background: '#ECECEC', color: '#222' }}>
+      <HeaderBar />
+      <div style={{ display: 'flex' }}>
       <div style={{ width: 340, borderRight: '1px solid #ddd', background: '#fff' }}>
         <div style={{ padding: 12, borderBottom: '1px solid #eee', fontWeight: 600 }}>Chats</div>
         <div>
@@ -39,6 +42,7 @@ export default function Chats() {
         </div>
       </div>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>Select a chat</div>
+      </div>
     </main>
   )
 }
