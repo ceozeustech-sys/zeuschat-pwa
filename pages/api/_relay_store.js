@@ -4,6 +4,7 @@ const users = new Map() // code -> { name, phone, passwordHashB64, avatarB64, st
 const contacts = new Map() // ownerCode -> [{ code, alias }]
 const acks = new Map() // code -> { blobId, reason }
 const sms = new Map() // phone -> code
+const emails = new Map() // email -> code
 
 function genId() {
   let s = ''
@@ -53,3 +54,5 @@ export function popAck(code) { const a = acks.get(code); if (!a) return null; ac
 
 export function setSmsCode(phone, code) { sms.set(phone, code) }
 export function verifySms(phone, code) { const c = sms.get(phone); if (!c) return false; const ok = String(c) === String(code); if (ok) sms.delete(phone); return ok }
+export function setEmailCode(email, code) { emails.set(email, code) }
+export function verifyEmail(email, code) { const c = emails.get(email); if (!c) return false; const ok = String(c) === String(code); if (ok) emails.delete(email); return ok }
